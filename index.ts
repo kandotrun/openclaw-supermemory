@@ -5,8 +5,6 @@
  * and optionally capture important conversation content afterward.
  *
  * Uses mcporter CLI to communicate with the supermemory MCP server.
- *
- * @see https://github.com/kandotrun/openclaw-supermemory
  */
 
 import { execFile, execFileSync } from "node:child_process";
@@ -51,14 +49,14 @@ function resolveMcporterBin(logger: { warn: (msg: string) => void }): string {
   }
 
   // Fallback to common location
-  const home = process.env.HOME ?? "";
+  const home = process.env.HOME || "/home/kan";
   const fallback = `${home}/.local/bin/mcporter`;
   try {
     execFileSync(fallback, ["--version"], { timeout: 3000, stdio: "ignore" });
     return fallback;
   } catch {
     logger.warn(
-      "supermemory-auto: mcporter not found in PATH or ~/.local/bin — recall/capture will not work",
+      "supermemory-auto: mcporter not found in PATH or ~/.local/bin/mcporter — recall/capture will fail",
     );
     return "mcporter"; // best-effort
   }
@@ -70,7 +68,9 @@ async function callMcporter(
   args: Record<string, string>,
   timeoutMs: number,
 ): Promise<string | null> {
+  // Build arg list: ["key=value", ...]
   const argList = Object.entries(args).map(([k, v]) => {
+    // Sanitize value: remove newlines and null bytes
     const clean = v.replace(/[\r\n\0]/g, " ").trim();
     return `${k}=${clean}`;
   });
@@ -92,12 +92,47 @@ async function callMcporter(
 
 /** Extract meaningful text from the raw prompt, trimmed to maxLen. */
 function extractQuery(prompt: string, maxLen: number): string {
-  let text = prompt.replace(/\n+/g, " ").trim();
+  let text = prompt
+    // Strip newlines for a cleaner query
+    .replace(/\n+/g, " ")
+    .trim();
+
   if (text.length > maxLen) {
     // Take the tail — the actual user message is usually at the end
     text = text.slice(-maxLen);
   }
+
   return text;
+}
+
+/**
+ * Strip the static "User Profile / Stable facts" section from supermemory output.
+ * Keep only "Recent context" and "Relevant Memories" which are dynamic and useful.
+ */
+function filterRecalledContext(raw: string): string {
+  const sections: string[] = [];
+
+  // Extract "Recent context:" section
+  const recentMatch = raw.match(
+    /\*\*Recent context:\*\*\s*\n([\s\S]*?)(?=\n## |\n\*\*Stable facts:\*\*|$)/,
+  );
+  if (recentMatch?.[1]?.trim()) {
+    sections.push("## Recent context\n" + recentMatch[1].trim());
+  }
+
+  // Extract "## Relevant Memories" section
+  const memoriesMatch = raw.match(/## Relevant Memories\s*\n([\s\S]*?)$/);
+  if (memoriesMatch?.[1]?.trim()) {
+    sections.push("## Relevant Memories\n" + memoriesMatch[1].trim());
+  }
+
+  // If we extracted useful sections, return them
+  if (sections.length > 0) {
+    return sections.join("\n\n");
+  }
+
+  // Fallback: if structure is unexpected, return as-is
+  return raw;
 }
 
 /** Check if a prompt is a heartbeat or system-generated message. */
@@ -107,6 +142,7 @@ function isSystemMessage(prompt: string): boolean {
     lower.includes("heartbeat") ||
     lower.includes("no_reply") ||
     lower.includes("heartbeat_ok") ||
+    // Skip if prompt is just metadata with no real content
     prompt.trim().length < 5
   );
 }
@@ -148,10 +184,15 @@ export default function register(api: any) {
 
         if (!recalled || recalled.length < 20) return;
 
+        // Filter out static profile data, keep only dynamic context
+        const filtered = filterRecalledContext(recalled);
+        if (!filtered || filtered.length < 20) return;
+
+        // Truncate if still too long
         const context =
-          recalled.length > cfg.maxContextChars
-            ? recalled.slice(0, cfg.maxContextChars) + "\n...(truncated)"
-            : recalled;
+          filtered.length > cfg.maxContextChars
+            ? filtered.slice(0, cfg.maxContextChars) + "\n...(truncated)"
+            : filtered;
 
         api.logger.info?.(
           `supermemory-auto: injecting ${context.length} chars of recalled context`,
@@ -201,6 +242,7 @@ export default function register(api: any) {
         }
       }
 
+      // Filter out noise
       const candidates = userTexts.filter(
         (t) =>
           t.length >= 15 &&
