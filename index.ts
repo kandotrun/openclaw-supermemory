@@ -29,7 +29,7 @@ const DEFAULTS: Required<PluginConfig> = {
   autoCapture: false,
   recallTimeoutMs: 10_000,
   maxQueryLength: 300,
-  maxContextChars: 3000,
+  maxContextChars: 15000,
 };
 
 // ============================================================================
@@ -184,15 +184,11 @@ export default function register(api: any) {
 
         if (!recalled || recalled.length < 20) return;
 
-        // Filter out static profile data, keep only dynamic context
-        const filtered = filterRecalledContext(recalled);
-        if (!filtered || filtered.length < 20) return;
-
-        // Truncate if still too long
+        // Truncate if too long
         const context =
-          filtered.length > cfg.maxContextChars
-            ? filtered.slice(0, cfg.maxContextChars) + "\n...(truncated)"
-            : filtered;
+          recalled.length > cfg.maxContextChars
+            ? recalled.slice(0, cfg.maxContextChars) + "\n...(truncated)"
+            : recalled;
 
         api.logger.info?.(
           `supermemory-auto: injecting ${context.length} chars of recalled context`,
