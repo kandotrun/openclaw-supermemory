@@ -1,7 +1,7 @@
 {
   "id": "supermemory-auto",
-  "name": "Supermemory Auto-Recall/Capture",
-  "description": "Automatically recall context from supermemory before each agent response and optionally capture important conversation content afterward. Uses mcporter CLI to communicate with the supermemory MCP server.",
+  "name": "Supermemory Auto-Recall/Capture v2",
+  "description": "Full supermemory-driven memory: auto-recall via before_prompt_build, full conversation capture (user + assistant), compaction hook, and registered agent tools (memory_save/recall/forget).",
   "kind": "memory",
   "configSchema": {
     "type": "object",
@@ -14,13 +14,18 @@
       },
       "autoCapture": {
         "type": "boolean",
-        "default": false,
-        "description": "Auto-capture important user messages to supermemory after conversations"
+        "default": true,
+        "description": "Auto-capture ALL conversation messages (user + assistant) to supermemory. Supermemory decides what to remember."
       },
       "recallTimeoutMs": {
         "type": "number",
         "default": 10000,
         "description": "Timeout for recall calls (ms)"
+      },
+      "captureTimeoutMs": {
+        "type": "number",
+        "default": 20000,
+        "description": "Timeout for capture/save calls (ms)"
       },
       "maxQueryLength": {
         "type": "number",
@@ -29,22 +34,36 @@
       },
       "maxContextChars": {
         "type": "number",
-        "default": 3000,
+        "default": 15000,
         "description": "Max characters of recalled context to inject"
+      },
+      "maxCaptureChars": {
+        "type": "number",
+        "default": 5000,
+        "description": "Max characters per capture payload sent to supermemory"
+      },
+      "containerTag": {
+        "type": "string",
+        "default": "",
+        "description": "Optional supermemory project/container tag for scoping memories"
       }
     }
   },
   "uiHints": {
     "autoRecall": {
       "label": "Auto-Recall",
-      "help": "Automatically search supermemory and inject relevant context before each response"
+      "help": "Automatically search supermemory and inject relevant context before each response (uses before_prompt_build hook)"
     },
     "autoCapture": {
-      "label": "Auto-Capture",
-      "help": "Automatically save important conversation content to supermemory (disabled by default to avoid duplicating manual saves)"
+      "label": "Auto-Capture (Full)",
+      "help": "Send ALL conversation content (user + assistant) to supermemory after each exchange. No filtering — supermemory decides what to remember."
     },
     "recallTimeoutMs": {
       "label": "Recall Timeout (ms)",
+      "advanced": true
+    },
+    "captureTimeoutMs": {
+      "label": "Capture Timeout (ms)",
       "advanced": true
     },
     "maxQueryLength": {
@@ -53,6 +72,16 @@
     },
     "maxContextChars": {
       "label": "Max Context Chars",
+      "advanced": true
+    },
+    "maxCaptureChars": {
+      "label": "Max Capture Chars",
+      "help": "Maximum characters per conversation capture sent to supermemory",
+      "advanced": true
+    },
+    "containerTag": {
+      "label": "Container Tag",
+      "help": "Optional supermemory project scope (e.g. sm_project_default)",
       "advanced": true
     }
   }
