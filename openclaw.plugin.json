@@ -1,0 +1,59 @@
+{
+  "id": "supermemory-auto",
+  "name": "Supermemory Auto-Recall/Capture",
+  "description": "Automatically recall context from supermemory before each agent response and optionally capture important conversation content afterward. Uses mcporter CLI to communicate with the supermemory MCP server.",
+  "kind": "memory",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "autoRecall": {
+        "type": "boolean",
+        "default": true,
+        "description": "Auto-recall relevant context from supermemory before each response"
+      },
+      "autoCapture": {
+        "type": "boolean",
+        "default": false,
+        "description": "Auto-capture important user messages to supermemory after conversations"
+      },
+      "recallTimeoutMs": {
+        "type": "number",
+        "default": 10000,
+        "description": "Timeout for recall calls (ms)"
+      },
+      "maxQueryLength": {
+        "type": "number",
+        "default": 300,
+        "description": "Max characters to use from user message as recall query"
+      },
+      "maxContextChars": {
+        "type": "number",
+        "default": 3000,
+        "description": "Max characters of recalled context to inject"
+      }
+    }
+  },
+  "uiHints": {
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "help": "Automatically search supermemory and inject relevant context before each response"
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "help": "Automatically save important conversation content to supermemory (disabled by default to avoid duplicating manual saves)"
+    },
+    "recallTimeoutMs": {
+      "label": "Recall Timeout (ms)",
+      "advanced": true
+    },
+    "maxQueryLength": {
+      "label": "Max Query Length",
+      "advanced": true
+    },
+    "maxContextChars": {
+      "label": "Max Context Chars",
+      "advanced": true
+    }
+  }
+}
